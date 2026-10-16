@@ -1,0 +1,79 @@
+.tesla-notch {
+  background-color: rgba(12, 12, 14, 0.97);
+  border-radius: 0 0 22px 22px;
+  padding: 10px 16px 14px 16px;
+  color: #f2f2f4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  spacing: 8px;
+}
+
+.tesla-notch.tesla-needs-approval {
+  border: 1px solid #ff9f0a;
+  border-top-width: 0;
+}
+
+.tesla-header { spacing: 10px; min-height: 22px; }
+
+.tesla-dot { width: 10px; height: 10px; border-radius: 5px; background-color: #8e8e93; }
+.tesla-dot-transcribing, .tesla-dot-thinking { background-color: #0a84ff; }
+.tesla-dot-speaking { background-color: #30d158; }
+.tesla-dot-approval { background-color: #ff9f0a; }
+
+.tesla-bars { spacing: 3px; }
+.tesla-bar { width: 4px; height: 4px; border-radius: 2px; background-color: #ff453a; }
+
+.tesla-status { font-size: 10.5pt; font-weight: bold; color: #d1d1d6; }
+.tesla-transcript { font-size: 10.5pt; font-style: italic; color: #a1a1a8; }
+.tesla-response { font-size: 11.5pt; color: #ffffff; }
+.tesla-error { font-size: 10pt; color: #ff6961; }
+
+.tesla-shown-box { spacing: 6px; }
+.tesla-shown {
+  background-color: #1f1f24;
+  border-radius: 10px;
+  padding: 8px 10px;
+  spacing: 8px;
+}
+.tesla-shown-text { font-family: monospace; font-size: 10pt; color: #e5e5ea; }
+
+.tesla-icon-button { border-radius: 8px; padding: 4px; color: #a1a1a8; }
+.tesla-icon-button:hover { background-color: rgba(255, 255, 255, 0.12); color: #ffffff; }
+
+.tesla-approval {
+  spacing: 10px;
+  background-color: rgba(255, 159, 10, 0.1);
+  border-radius: 12px;
+  padding: 10px;
+}
+.tesla-approval-text { font-family: monospace; font-size: 10pt; color: #ffd60a; }
+.tesla-approval-buttons { spacing: 8px; }
+
+.tesla-button { border-radius: 99px; padding: 5px 16px; font-weight: bold; color: #ffffff; }
+.tesla-allow { background-color: #248a3d; }
+.tesla-allow:hover { background-color: #2fa84d; }
+.tesla-deny { background-color: #3a3a3c; }
+.tesla-deny:hover { background-color: #8e2c2c; }
+
+.tesla-sources { spacing: 6px; }
+.tesla-sources-header { font-size: 8pt; font-weight: bold; color: #8e8e93; padding-left: 2px; }
+.tesla-source {
+  background-color: rgba(10, 132, 255, 0.1);
+  border: 1px solid rgba(10, 132, 255, 0.3);
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+.tesla-source:hover { background-color: rgba(10, 132, 255, 0.22); border-color: rgba(10, 132, 255, 0.6); }
+.tesla-source.tesla-source-opened { border-color: rgba(48, 209, 88, 0.6); }
+.tesla-source-row { spacing: 10px; }
+.tesla-source-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: #0a84ff;
+  color: #ffffff;
+  font-size: 9pt;
+  font-weight: bold;
+}
+.tesla-source-title { font-size: 10pt; font-weight: bold; color: #f2f2f7; }
+.tesla-source-domain { font-size: 8.5pt; font-family: monospace; color: #64d2ff; }
+.tesla-source-icon { color: #8e8e93; }

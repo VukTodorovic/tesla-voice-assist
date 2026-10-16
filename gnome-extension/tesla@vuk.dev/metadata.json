@@ -1,0 +1,7 @@
+{
+  "uuid": "tesla@vuk.dev",
+  "name": "Tesla",
+  "description": "Notch UI, hold-to-talk and screen context for the Tesla local voice assistant.",
+  "shell-version": ["46"],
+  "version": 1
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Tesla voice assistant
+PartOf=graphical-session.target
+After=graphical-session.target pipewire.service
+
+[Service]
+ExecStart=%h/.local/bin/tesla run
+Restart=on-failure
+RestartSec=3
+# Exit status 3: another Tesla already runs (e.g. one started by hand); do not loop.
+RestartPreventExitStatus=3
+# Tesla stops the claude CLI and deletes conversation transcripts on SIGTERM.
+KillMode=mixed
+TimeoutStopSec=15
+
+[Install]
+WantedBy=graphical-session.target

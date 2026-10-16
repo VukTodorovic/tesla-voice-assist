@@ -1,0 +1,41 @@
+# Copy to ~/.config/tesla/config.toml; every key is optional.
+
+[brain]
+model = "haiku"            # haiku (Haiku 5.5, fastest) | haiku-4.5 | sonnet | opus | full model id
+effort = "low"             # thinking effort (Haiku 4.5 runs without thinking instead)
+session_idle_reset_min = 15
+
+[wake]
+enabled = true             # "Hej Tesla"; keeps the mic open while idle
+preroll_s = 2.0
+
+[stt]
+service = "groq"           # groq (hosted, needs GROQ_API_KEY; local model is the fallback) | local
+groq_model = "whisper-large-v3"   # or whisper-large-v3-turbo (a bit faster, less accurate)
+groq_timeout_s = 3.0       # slower than this: the local model transcribes instead
+engine = "auto"            # local engine: auto | whisper.cpp | faster-whisper
+model = ""                 # "" = engine default (whisper.cpp: large-v3-turbo-q8_0, faster-whisper: small)
+audio_window = "fit"       # whisper.cpp: fit | full (30 s, most accurate, ~2x slower)
+min_window_s = 15          # whisper.cpp "fit": large models break below ~15 s
+beam_size = 1              # faster-whisper
+cpu_threads = 8
+
+[screen]
+capture = "pointer"        # pointer | focused | primary | all (which screen screenshots show)
+
+[tts]
+voice = "nicholas"         # nicholas (male) | sophie (female)
+rate = "+10%"              # speaking rate, e.g. "+20%" or "-5%"
+
+[listen]
+end_silence_ms = 800
+no_speech_timeout_s = 6
+followup_s = 4             # 0 disables follow-up listening
+
+[audio]
+feedback_sounds = true
+feedback_volume = 0.2
+
+[projects]
+privatni = ["~/coding"]
+poslovni = ["~/3nity_solutions", "~/prozone-ai", "~/corporate_momentum"]
