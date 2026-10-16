@@ -1,6 +1,14 @@
 # Tesla
 
-Lokalni glasovni asistent za GNOME (Wayland). Pritisneš prečicu, kažeš šta ti treba, a Tesla odgovori glasom. Usput može da otvori aplikaciju, sajt, terminal ili VS Code, ili da pronađe nešto u tvojim projektima. Mozak je Claude Code preko tvoje Claude subskripcije. Govor se prepoznaje preko Groq-ovog Whisper-a (`whisper-large-v3`, besplatno uz `GROQ_API_KEY`). Kad Groq nije dostupan, preuzima lokalni model (whisper.cpp na iGPU, ili faster-whisper na CPU-u). Glas su Microsoftovi srpski neural glasovi preko interneta (edge-tts).
+Glasovni asistent za GNOME (Wayland). Pritisneš prečicu ili kažeš "Hej Tesla", kažeš šta ti treba, a Tesla odgovori glasom. Usput može da otvori aplikaciju, sajt, terminal ili VS Code, da pronađe nešto u tvojim projektima ili da pogleda šta ti je na ekranu.
+
+| Deo | Šta koristi | Gde radi |
+|---|---|---|
+| Buđenje ("Hej Tesla") | Vosk, mali engleski model | lokalno, CPU |
+| Kraj rečenice (VAD) | Silero VAD | lokalno, CPU |
+| Prepoznavanje govora | Groq `whisper-large-v3`; rezerva: whisper.cpp `large-v3-turbo` | Groq cloud; rezerva lokalno na iGPU (Vulkan) |
+| Mozak | Claude Code (Agent SDK), Haiku 5.5, preko tvoje Claude subskripcije | Anthropic cloud |
+| Glas | Microsoft neural glasovi `sr-RS` (edge-tts) | Microsoft cloud |
 
 ## Instalacija
 
@@ -8,191 +16,237 @@ Lokalni glasovni asistent za GNOME (Wayland). Pritisneš prečicu, kažeš šta 
 scripts/install.sh
 ```
 
-Skripta instalira Teslu kao zaseban program (`uv tool`), uz notch ekstenziju, prečicu `Super+Alt+Space` i systemd korisnički servis. Tesla se tako pokreće pri svakoj prijavi, a ako padne, servis je sam podigne. Prvi put traje nekoliko minuta, jer pravi i whisper.cpp sa Vulkanom za iGPU, bez `sudo`.
+Skripta instalira:
 
-- **Nova verzija:** posle izmena u repou pokreni `scripts/install.sh` ponovo. Zameniće verziju koja radi i restartovati servis. Sve dok to ne uradiš, rad u repou ne dira Teslu koja radi. Ako se promenila i ekstenzija, skripta će ti reći da se odjaviš i ponovo prijaviš.
+- Teslu kao zaseban program (`uv tool`, u `~/.local/bin/tesla`);
+- notch ekstenziju za GNOME Shell;
+- prečicu `Super+Alt+Space`;
+- systemd korisnički servis, koji pokreće Teslu pri svakoj prijavi i sam je podigne ako padne.
+
+Prvi put traje nekoliko minuta, jer pravi i whisper.cpp sa Vulkanom za iGPU, bez `sudo`. Ako u repou postoji `.env`, kopira ga u `~/.config/tesla/env` (dozvole 600), odakle servis čita tajne, npr. `GROQ_API_KEY`.
+
+- **Nova verzija:** posle izmena u repou pokreni `scripts/install.sh` ponovo. Zameniće verziju koja radi i restartovati servis. Rad u repou ne dira Teslu koja radi, sve dok ponovo ne instaliraš. Ako se promenila ekstenzija, skripta kaže da se odjaviš i ponovo prijaviš, jer GNOME na Waylandu učitava ekstenzije samo pri prijavi.
 - **Komande:** `tesla version`, `journalctl --user -u tesla -f` za logove, `systemctl --user restart tesla`.
 - **Uklanjanje:** `scripts/uninstall.sh`. Konfiguracija i modeli ostaju.
 
-**Za razvoj** pokreni `uv run tesla` iz repoa. Prvo zaustavi servis (`systemctl --user stop tesla`), jer dve Tesle ne mogu da rade istovremeno. Druga se odmah ugasi sa porukom da Tesla već radi.
+### Razvoj
 
-**Kratak pritisak na `Super+Alt+Space`:** Tesla sluša dok ne ućutiš.
+- **Pokretanje iz repoa:** prvo zaustavi servis (`systemctl --user stop tesla`), pa pokreni `uv run tesla`. Dve Tesle ne mogu da rade istovremeno: druga se odmah ugasi sa porukom da Tesla već radi.
+- **Posle `uv sync`, `uv add` ili `uv remove`:** te komande iz razvojnog venv-a uklanjaju Vulkan whisper.cpp, pa pokreni `scripts/build-whispercpp-vulkan.sh --install`. Instalirana Tesla to ne oseti.
+- **Razvoj ekstenzije:** `scripts/nested-shell.sh` pokreće GNOME u prozoru, sa ekstenzijom iz repoa i izolovanim podešavanjima. Instalirana kopija ostaje netaknuta.
 
-**Držanje tastera:** ako posle pritiska nastaviš da držiš `Super+Alt`, sluša sve dok ne pustiš, i pauze joj tada ne smetaju.
+## Korišćenje
 
-Može i bez prečice. Kaži "Hej Tesla" i odmah nastavi ("Hej Tesla, otvori terminal"), ili napravi pauzu pa kaži zahtev.
+**Prečica `Super+Alt+Space`:**
 
-- Buđenje glasom isključuješ sa `tesla wake off` ili glasom "isključi buđenje".
-- Ponovo ga uključuješ sa `tesla wake on`.
-- Trajno: `wake.enabled = false`.
-- Dok je uključeno, mikrofon je stalno otvoren, pa GNOME stalno prikazuje indikator mikrofona. Ništa se ne snima niti šalje dok ne čuje ime.
-
+- **Kratak pritisak:** Tesla sluša dok ne ućutiš.
+- **Pritisak pa držanje `Super+Alt`:** sluša dok ne pustiš, i pauze joj tada ne smetaju.
 - **Ponovni pritisak dok slušaš:** odmah završava snimanje.
 - **Ponovni pritisak dok priča ili razmišlja:** prekida je i ponovo sluša.
-- **Posle odgovora** još nekoliko sekundi čeka nastavak bez prečice (`listen.followup_s`).
 
-Notch iskače ispod sata:
+**"Hej Tesla":** kaži ime i odmah nastavi ("Hej Tesla, otvori terminal"), ili napravi pauzu pa kaži zahtev.
 
-- **Slušanje:** pokazuje nivo mikrofona.
-- **Razmišljanje i rad alata:** pokazuje šta Tesla trenutno radi ("Čitam fajl…").
-- **Odgovor:** pitanje i odgovor se vide dok stižu.
-- **Kod, putanje i vrednosti:** dobijaju poseban blok sa dugmetom za kopiranje.
-- **Rizične radnje:** pojavljuje se kartica sa dugmićima "Dozvoli" i "Odbij".
+- Isključuješ ga glasom ("isključi buđenje") ili sa `tesla wake off`, a ponovo uključuješ sa `tesla wake on`. Trajno: `[wake] enabled = false`.
+- Dok je uključeno, mikrofon je stalno otvoren, pa GNOME stalno prikazuje indikator mikrofona. Zvuk se obrađuje lokalno i ne šalje se nigde dok Tesla ne čuje ime.
 
-Bez ekstenzije sve radi i dalje, samo preko notifikacija.
+**Posle odgovora** Tesla još nekoliko sekundi čeka nastavak bez prečice (`[listen] followup_s`). Kad se oprostiš, odmah prestaje da sluša.
 
-**Kontekst ekrana.** Za svako obraćanje ekstenzija beleži:
+**Kucani zahtev:** `tesla send "Otvori Firefox"` šalje pitanje Tesli koja radi; odgovor stiže u notch.
 
-- aktivni prozor (naslov i aplikaciju);
-- selektovan tekst, ako je selektovan u poslednjih 90 s;
-- snimak ekrana: podrazumevano monitora na kom je kursor miša (`[screen] capture`: `pointer`, `focused` za monitor aktivnog prozora, `primary` za glavni monitor, `all` za sve monitore u jednoj slici).
-
-**Kada nastaje:**
-
-- **prečica:** u trenutku pritiska, pre nego što notch iskoči;
-- **"Hej Tesla":** odmah posle buđenja;
-- **nastavak razgovora:** čim završiš rečenicu, paralelno sa prepoznavanjem govora, pa ne dodaje kašnjenje;
-- **kucani zahtev:** pre slanja modelu.
-
-Kad je notch vidljiv, ne sakriva se (nema treptanja), nego se njegovo mesto na snimku prekrije tamnim pravougaonikom.
-
-Snimak ostaje lokalno u `$XDG_RUNTIME_DIR/tesla/` (tmpfs, svaki novi prepisuje stari). Modelu ide samo kad u rečenici pomeneš ekran ("šta je ovo", "ova greška", "na ekranu") ili kad model sam pozove `look_at_screen`.
-
-Glasovne komande koje ne idu do modela:
+### Glasovne komande koje ne idu do modela
 
 | Kažeš | Šta se desi |
 |---|---|
 | "nova tema" / "počnimo ispočetka" | nova konverzacija |
 | "pređi na sonet" / "pređi na haiku" / "pređi na opus" | promena modela, kontekst ostaje |
-| "stani" / "nema veze" | prekid |
+| "stani" / "nema veze" | tih prekid |
 | "hvala, ćao" / "to je sve" / "laku noć" | kratak pozdrav, pa mirovanje i skrivanje notch-a |
 | "otvori drugi link" / "otvori sve izvore" | otvara izvore iz poslednjeg odgovora |
 | "isključi buđenje" / "uključi buđenje" | "Hej Tesla" isključeno ili uključeno |
 
-**Glas:** `[tts] voice = "sophie"` za ženski glas, `"nicholas"` je podrazumevani. Brzina se podešava preko `rate = "+10%"`. Preslušavanje: `uv run tesla say --voice sophie "Zdravo"`.
+Samo "ćao" na početku razgovora je pozdrav, ne kraj. Oproštaj koji ove fraze ne pokrivaju prepozna model: na kraj odgovora doda skrivenu oznaku `[[kraj]]`, koja gasi slušanje.
 
-Testiranje pojedinačnih delova:
+### Notch
 
-```bash
-uv run tesla say "Zdravo, ja sam Tesla."     # samo glas
-uv run tesla hear                             # mikrofon + VAD + Whisper
-uv run tesla ask "Koji port koristi DJS_Backend?" [--speak]   # samo model
-uv run tesla send "Otvori Firefox"            # kucani zahtev pokrenutoj Tesli (sa notch-om)
-scripts/nested-shell.sh                       # razvoj ekstenzije u GNOME-u u prozoru
-uv run scripts/bench_voice.py --record        # Whisper modeli na tvom glasu
-uv run scripts/bench_llm.py                   # brzina modela kroz claude CLI
-```
+Notch iskače ispod sata, uvek na glavnom monitoru:
 
+- **Slušanje:** prikazuje nivo mikrofona.
+- **Razmišljanje i rad alata:** prikazuje šta Tesla radi ("Čitam fajl…").
+- **Odgovor:** tekst rečenice se pojavljuje tek kad ona krene da se izgovara, pa ne čitaš ispred Tesle. U tihom režimu (`[tts] enabled = false`) tekst se prikazuje odmah.
+- **Kod, putanje i vrednosti:** dobijaju poseban blok sa dugmetom za kopiranje. Ne izgovaraju se.
+- **Izvori:** prikazuju se kao numerisane kartice. Klik ih otvara u browseru, a otvaraju se i glasom.
+- **Rizične radnje:** pojavljuje se kartica sa dugmićima "Dozvoli" i "Odbij".
 
-## Bezbednost
+Bez ekstenzije sve radi i dalje, ali preko notifikacija.
+
+### Kontekst ekrana
+
+Za svako obraćanje ekstenzija beleži aktivni prozor (naslov i aplikaciju), tekst koji si selektovao u poslednjih 90 s i snimak ekrana.
+
+**Koji ekran se snima** (`[screen] capture`):
+
+| Vrednost | Šta se snima |
+|---|---|
+| `pointer` (podrazumevano) | monitor na kom je kursor miša |
+| `focused` | monitor aktivnog prozora |
+| `primary` | glavni monitor |
+| `all` | svi monitori u jednoj slici |
+
+**Kada nastaje snimak:**
+
+- **prečica:** u trenutku pritiska, pre nego što notch iskoči;
+- **"Hej Tesla":** odmah posle buđenja;
+- **nastavak razgovora:** čim završiš rečenicu, paralelno sa prepoznavanjem govora;
+- **kucani zahtev:** pre slanja modelu.
+
+Kad je notch već vidljiv, ne sakriva se, nego se njegovo mesto na snimku prekrije tamnim pravougaonikom.
+
+Snimak ostaje u `$XDG_RUNTIME_DIR/tesla/` (tmpfs; svaki novi prepisuje stari). Modelu ide samo kad u rečenici pomeneš ekran ("šta je ovo", "ova greška", "na ekranu") ili kad model sam pozove alat `look_at_screen`.
+
+## Bezbednost i privatnost
 
 Svaki poziv alata prolazi kroz `src/tesla/policy.py`:
 
 - **Slobodno:** čitanje i pretraga fajlova, web, Bash komande koje samo čitaju (`ls`, `cat`, `git status`, `git log`…) i Teslini alati za otvaranje aplikacija, sajtova, foldera i terminala.
-- **Uz odobrenje** (notifikacija sa dugmićima "Dozvoli" i "Odbij"): bilo kakav upis ili izmena fajla, svaka druga Bash komanda, čitanje `.env` fajlova.
+- **Uz odobrenje** (kartica u notch-u, bez ekstenzije notifikacija): svaki upis ili izmena fajla, svaka druga Bash komanda, čitanje `.env` fajlova. Ako odbiješ, a model posle toga ćuti, Tesla kaže da radnja nije izvršena.
 - **Nikad:** `sudo`, brisanje `/` ili `~`, `mkfs`, `dd` na disk, kao i bilo kakav pristup `~/.ssh`, `~/.gnupg`, keyring-u, cloud kredencijalima i kolačićima browsera.
 
-Tesla pokreće Claude Code izolovano: bez tvojih korisničkih podešavanja, MCP servera i CLAUDE.md fajlova, sa sopstvenim workspace-om u `~/.local/share/tesla/workspace`. `ANTHROPIC_API_KEY` se namerno uklanja iz okruženja, da bi se uvek koristila subskripcija.
+**Claude Code** radi izolovano: bez tvojih korisničkih podešavanja, MCP servera i CLAUDE.md fajlova, sa sopstvenim workspace-om u `~/.local/share/tesla/workspace`. `ANTHROPIC_API_KEY` se namerno uklanja iz okruženja, da bi se uvek koristila subskripcija.
 
-Claude Code čuva transkript svake sesije, uključujući priložene snimke ekrana, u `~/.claude/projects/-home-vuk--local-share-tesla-workspace/`. Tesla ga briše čim se konverzacija završi ("nova tema", 15 minuta neaktivnosti, gašenje daemona). Pri pokretanju daemona briše i sve zaostale transkripte.
+**Transkripti:** Claude Code čuva transkript svake sesije, uključujući priložene snimke ekrana, u `~/.claude/projects/-home-vuk--local-share-tesla-workspace/`. Tesla ga briše čim se konverzacija završi ("nova tema", 15 minuta neaktivnosti, gašenje daemona). Pri pokretanju briše i zaostale transkripte.
+
+**Šta napušta računar:**
+
+| Kome | Šta |
+|---|---|
+| Anthropic | tvoje poruke, tekstualni kontekst, snimci ekrana kad se priključe |
+| Groq | snimak tvog glasa za svako obraćanje (sa `[stt] service = "local"` ostaje na računaru) |
+| Microsoft | tekst onoga što Tesla izgovara |
 
 ## Konfiguracija
 
-Pogledaj `config.example.toml`. Konfiguracija se čita iz `~/.config/tesla/config.toml`, a svaki ključ je opcion.
+Konfiguracija je u `~/.config/tesla/config.toml`; svaki ključ je opcion. Pogledaj `config.example.toml`. Posle izmene: `systemctl --user restart tesla`.
+
+**Prepoznavanje govora** (`[stt]`):
+
+- **`service = "groq"`** (podrazumevano) traži `GROQ_API_KEY`. Lokalni model je uvek učitan kao rezerva i preuzima kad:
+  - nema ključa;
+  - Groq vrati grešku;
+  - Groq ne odgovori za `groq_timeout_s`;
+  - se potroši ograničenje (429). Tada Tesla do isteka vremena koje Groq zada (`retry-after`) ide pravo na lokalni model.
+- **`service = "local"`:** samo lokalno.
+- **`engine = "auto"`** bira lokalni model: whisper.cpp sa `large-v3-turbo` na iGPU, ako je instaliran Vulkan build, a inače faster-whisper `small` na CPU-u.
+
+**Glas** (`[tts]`):
+
+- `voice = "sophie"` za ženski glas; `"nicholas"` je podrazumevani.
+- `rate = "+10%"` za brzinu.
+- Preslušavanje: `tesla say --voice sophie "Zdravo"`.
+
+**Ako Tesla prestane da priča** i u logu vidiš `403` od Microsofta, Microsoft je promenio proveru zahteva. Rešenje je novija `edge-tts`:
+
+```bash
+uv lock --upgrade-package edge-tts && uv sync
+scripts/build-whispercpp-vulkan.sh --install
+scripts/install.sh
+```
 
 ## Arhitektura
 
 ```
-Super+Alt+Space ─► ekstenzija (dev.vuk.TeslaShell): notch, kontekst, screenshot, hold-to-talk
+Super+Alt+Space ─► ekstenzija (dev.vuk.TeslaShell): notch, kontekst, snimak ekrana, hold-to-talk
                      │  Activate(kontekst) / StopListening / Approve      ▲ Event(vrsta, vrednost)
                      ▼                                                    │
-                   daemon (dev.vuk.Tesla) ────────────────────────────────┘
+                   daemon (dev.vuk.Tesla, systemd --user) ────────────────┘
                            │
-  mikrofon ─► Silero VAD ─► faster-whisper (sr) ─► Claude Code (Agent SDK, stream-json)
-                                                      │  alati: Read/Glob/Grep/Bash/Web + mcp__tesla__*
-  zvučnik ◄── Edge TTS (sr-RS) ◄── rečenica po rečenicu ◄┘  dozvole: policy.py
+  "Hej Tesla" (Vosk) ─┐
+  mikrofon ───────────┴─► Silero VAD ─► Groq Whisper (rezerva: whisper.cpp) ─► Claude Code (Agent SDK)
+                                                         alati: Read/Glob/Grep/Bash/Web + mcp__tesla__*
+  zvučnik ◄── Edge TTS, strimovano, rečenica po rečenicu ◄──────────────────┘  dozvole: policy.py
 ```
 
 | Modul | Uloga |
 |---|---|
-| `daemon.py` | mašina stanja, D-Bus servis, tok jednog obraćanja |
-| `brain.py` | jedan dugoživeći `claude` proces, prekid, promena modela, reset posle neaktivnosti |
+| `daemon.py` | mašina stanja, D-Bus servis, tok jednog obraćanja, lokalne komande, usklađivanje teksta sa govorom |
+| `brain.py` | jedan dugoživeći `claude` proces, prekid, promena modela, kraj konverzacije i brisanje transkripata |
+| `stt.py` | Groq Whisper sa lokalnom rezervom (whisper.cpp ili faster-whisper), filter halucinacija |
+| `tts.py` | Edge TTS: prebacivanje u ćirilicu, izgovor engleskih reči, strimovano dekodiranje |
+| `audio.py` | deljeni mikrofon, zvučnik koji javlja kad koja rečenica stvarno počne, zvučni signali |
+| `vad.py` | Silero VAD, okvir po okvir |
+| `wake.py` | "Hej Tesla": Vosk detektor i skidanje imena sa početka transkripcije |
+| `screen.py` | kontekst ekrana, maska preko notch-a, kada se šalje snimak, alat `look_at_screen` |
 | `policy.py` | dozvole za alate |
 | `desktop.py` | MCP alati: `open_app`, `open_url`, `open_path`, `open_terminal`, `open_in_vscode`, `notify` |
-| `text.py` | ćirilica u latinicu, deljenje na rečenice za TTS, ``` blokovi se prikazuju umesto da se izgovaraju |
-| `wake.py` | "Hej Tesla": Vosk detektor; skidanje imena sa početka Whisper transkripcije |
-| `screen.py` | kontekst ekrana, odluka kada se šalje screenshot, alat `look_at_screen` |
-| `gnome-extension/tesla@vuk.dev` | GNOME Shell 46 ekstenzija (notch, prečica, hvatanje konteksta) |
+| `text.py` | latinica, deljenje na rečenice za govor, blokovi koda, izvori, oznaka kraja razgovora |
+| `prompt.py` | sistemski prompt i spisak tvojih projekata |
+| `gnome-extension/tesla@vuk.dev` | GNOME Shell 46 ekstenzija: notch, hvatanje konteksta, hold-to-talk |
+| `scripts/install.sh`, `uninstall.sh` | instalacija kao servis i uklanjanje |
+| `scripts/build-whispercpp-vulkan.sh` | whisper.cpp sa Vulkanom, bez `sudo` |
+| `scripts/bench_*.py` | merenja modela, STT-a i glasa |
 
-## Merenja (Ryzen 7 5700U, CPU)
+## Merenja
 
-**Modeli kroz `claude` CLI, sa toplim procesom (medijana):**
+Sve na Ryzen 7 5700U (Radeon Vega iGPU), srpski.
+
+**Mozak, kroz `claude` CLI sa toplim procesom (medijana):**
 
 | Model | Prvi token | Prva rečenica |
 |---|---|---|
-| **Haiku 5.5, effort low (podrazumevano od 8.10.)** | **0,57 s** | **0,9 s** |
-| Haiku 4.5, razmišljanje isključeno | 0,55 s | 1,0 s |
-| Sonnet 5.5, effort low | 1,1 s | 2,1 s |
+| **Haiku 5.5, effort low (podrazumevano)** | **0,57 s** | **0,9 s** |
+| Haiku 4.5, razmišljanje isključeno | 0,55–1,5 s | 1,0–1,5 s |
+| Sonnet 5.5, effort low | 1,1–2,2 s | 2,1–2,7 s |
 | Opus 5.5, effort low | 1,6 s | 2,1 s |
-| Haiku 4.5, podrazumevano (razmišlja) | 1,8 s | 2,2 s |
 
-**STT na sintetičkom srpskom (stari Piper glas, CPU):**
+Haiku i dalje greši na zadacima kao što je brojanje fajlova; za to reci "pređi na sonet". Razmišljanje kod 5.5 modela ne može potpuno da se isključi.
 
-| Whisper model | Vreme po rečenici | WER |
-|---|---|---|
-| `tiny` | 0,4 s | ~80% |
-| `base` | 0,7 s | ~60% |
-| `small` | 1,6 s (8 niti) | 52–59% |
-
-Na Vukovom glasu `small` je upotrebljiv: LLM razume i transkripcije sa greškama. `tiny` i `base` su neupotrebljivi. Parakeet v3 ne podržava srpski.
-
-Whisper uvek obrađuje prozor od 30 s, pa na CPU-u svako obraćanje traje oko 1,4–1,8 s bez obzira na dužinu.
-
-**Groq naspram lokalnog STT-a, Vukov glas, 6 rečenica:**
+**Prepoznavanje govora, Vukov glas, 6 rečenica:**
 
 | | Vreme po rečenici | WER |
 |---|---|---|
 | **Groq `whisper-large-v3` (podrazumevano)** | **0,32 s** | **16%** |
 | Groq `whisper-large-v3-turbo` | 0,24 s | 19% |
-| lokalni `large-v3-turbo` na iGPU (rezerva) | 1,54 s | 26% |
-
-**Groq** (`[stt] service = "groq"`):
-
-- **Ključ:** traži `GROQ_API_KEY` u `.env` u repou. `install.sh` ga kopira u `~/.config/tesla/env`.
-- **Rezerva:** lokalni model je uvek učitan i preuzima kad nema ključa, kad Groq vrati grešku, kad ne odgovori za `groq_timeout_s` ili kad se potroši ograničenje (429). Posle ograničenja Tesla do isteka zadatog vremena (`retry-after`) ide pravo na lokalni model.
-- **Privatnost:** tvoj glas tada ide Groq-u. Sa `service = "local"` sve ostaje na računaru.
-
-**STT na Vukovom glasu, whisper.cpp na iGPU (Radeon Vega, Vulkan), 6 rečenica:**
-
-| Model | Prozor | Vreme po rečenici | WER |
-|---|---|---|---|
-| faster-whisper `small`, CPU (rezerva) | 30 s | 1,9 s | 37% |
-| `small` q8 | 30 s | 0,8 s | 43% |
-| `medium` q5 | 30 s | 2,3 s | 24% |
-| **`large-v3-turbo` q8 (podrazumevano sa GPU-om)** | **≥15 s** | **1,6 s** | **20%** |
-| `large-v3-turbo` q8 | 30 s | 3,4 s | 9% |
+| whisper.cpp `large-v3-turbo` q8, iGPU, prozor ≥15 s (lokalna rezerva) | 1,5 s | 20–26% |
+| whisper.cpp `large-v3-turbo` q8, iGPU, prozor 30 s | 3,4 s | 9% |
+| whisper.cpp `medium` q5, iGPU, prozor 30 s | 2,3 s | 24% |
+| whisper.cpp `small` q8, iGPU | 0,8 s | 43% |
+| faster-whisper `small`, CPU (rezerva bez Vulkana) | 1,9 s | 37% |
 
 - **Uži prozor ruši veće modele:** `turbo` sa prozorom ispod 15 s izbacuje besmislice ili engleski, a `medium` upada u petlje ponavljanja.
 - **Bez GPU-a je `turbo` neupotrebljiv:** na CPU-u traje oko 11 s.
-- **`small` modeli trenirani na srpskom** (Sagicc, istomin) su na CPU-u dali 30–34% grešaka, uz isto vreme kao `small`.
-- **flash attention ne pomaže** na Vulkanu.
+- **`small` modeli dodatno trenirani na srpskom** (Sagicc, istomin) dali su 30–34% grešaka.
+- **Ostalo:** `tiny` i `base` su neupotrebljivi. Parakeet v3 ne podržava srpski. flash attention ne pomaže na Vulkanu.
 
-**TTS:** Microsoftovi neural glasovi `sr-RS-NicholasNeural` (podrazumevani, muški) i `sr-RS-SophieNeural` (ženski). Prvi zvuk stiže za oko 0,5 s po rečenici.
+**Glas:** Edge `sr-RS-NicholasNeural` i `sr-RS-SophieNeural`.
 
+- **Kašnjenje:** prvi zvuk stiže za 0,7–1,3 s. Do Microsoftove promene u oktobru 2026. bilo je oko 0,5 s. Zvuk se pušta dok još stiže.
 - **Ćirilica:** ovi glasovi latinicu čitaju kao besmislicu, pa se sve izgovara u ćirilici. Engleske reči prvo dobiju srpski izgovor ("Firefox" postaje "fajerfoks", "VS Code" "vi es kod").
-- **Bez interneta:** odgovori se samo prikazuju u notch-u, bez glasa.
-- **Piper (`sr_RS-serbski_institut`, lokalno) je izbačen:** razumljivost kroz STT bila mu je 47–61%, prema 26% kod Edge glasova, a 26% je praktično donja granica tog merenja.
+- **Piper je izbačen:** lokalni `sr_RS-serbski_institut` imao je razumljivost 47–61% WER kad se vrati kroz STT, a Edge 26%, što je praktično donja granica tog merenja.
+
+**"Hej Tesla":** Vosk sa slobodnim prepoznavanjem, ne sa listom reči, jer se ograničen rečnik lažno palio na 53 od 72 srpske rečenice.
+
+- **Na sintetičkom srpskom:** 13 od 16 fraza prepoznato, 0 lažnih okidanja na 40 rečenica bez imena (među njima "testo", "Tešla", "vesla", "električni auto").
+- **Potrošnja:** oko 2% jednog jezgra.
 
 ## Plan
 
-1. ~~Faza 0/1: merenja i glasovna petlja bez UI-a~~
-2. ~~GNOME Shell ekstenzija: notch, hold-to-talk, odobravanje, kontekst ekrana~~
-3. ~~Brži i tačniji STT: whisper.cpp + large-v3-turbo na iGPU (Vulkan)~~
-4. Memorija (profil + istorija + dnevna refleksija)
-5. ~~Wake word "Hej Tesla"~~ (Vosk + Whisper; kasnije eventualno istreniran openWakeWord model), diktiranje, delegiranje poslova Claude Code-u, tajmeri, brze komande bez LLM-a, dashboard
-6. Drugi backendi (Codex, API)
+Urađeno:
 
-**Wake word:** mali engleski Vosk model sa slobodnim prepoznavanjem, ne sa listom reči. Ograničen rečnik se lažno palio na 53 od 72 srpske rečenice.
+- glasovna petlja i notch;
+- prečica sa držanjem tastera;
+- odobravanje radnji;
+- kontekst ekrana;
+- "Hej Tesla";
+- Groq i lokalni STT;
+- Edge glas;
+- izvori sa karticama;
+- instalacija kao servis.
 
-- **Na sintetičkom srpskom:** 13 od 16 "Hej Tesla" fraza prepoznato, 0 lažnih okidanja na 40 rečenica bez imena. Među tim rečenicama su bile i "testo", "Tešla", "vesla" i "električni auto".
-- **Potrošnja:** oko 2% jednog jezgra.
+Sledeće:
+
+1. Prvi git commit i `pytest` testovi za delove koji su se već kvarili.
+2. Memorija: profil o tebi, istorija razgovora sa pretragom, dnevna refleksija.
+3. Kucanje u aktivni prozor ("napiši Ivanu…") i diktiranje posebnom prečicom.
+4. Delegiranje poslova Claude Code-u u pozadini, sa rezimeom kad završi.
+5. Tajmeri i podsetnici.
+6. Brze komande bez modela: terminal, muzika (MPRIS).
+7. Drugi backendi (Codex, API).
